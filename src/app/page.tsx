@@ -1,103 +1,163 @@
-import Image from "next/image";
+"use client";
+import { Icon } from "@iconify/react";
+import { useState, useRef, useEffect } from "react";
+import { Toaster, toast } from "sonner";
+import type { ClipboardItem } from "./api/clipboard/route";
+
+const MAX_TEXTAREA_HEIGHT = 240;
+const REFRESH_INTERVAL = 60000;
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [text, setText] = useState("");
+  const [clipboard, setClipboard] = useState<ClipboardItem[]>([]);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+  const adjustTextareaHeight = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(
+      textarea.scrollHeight,
+      MAX_TEXTAREA_HEIGHT
+    )}px`;
+  };
+
+  const fetchClipboard = async () => {
+    try {
+      const res = await fetch("/api/clipboard");
+      if (res.ok) {
+        const data: ClipboardItem[] = await res.json();
+        setClipboard(data);
+        toast.success("Portapales actualizado")
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Error al actualizar")
+    }
+  };
+
+  const sendText = async () => {
+    if (!text.replace(/\s/g, "").length) return;
+
+    try {
+      const res = await fetch("/api/clipboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+
+      if (res.ok) {
+        setText("");
+        fetchClipboard();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleCopyToClipboard = async (item: ClipboardItem) => {
+    try {
+      await navigator.clipboard.writeText(item.text);
+      toast.success("¡Copiado al portapapeles!");
+    } catch (err) {
+      console.error("Error al copiar:", err);
+      toast.error("Error al copiar");
+    }
+  };
+
+  const handleKeyDown = async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && e.ctrlKey) {
+      e.preventDefault();
+      if (text.trim()) {
+        await sendText();
+      }
+    }
+  };
+
+  const formatTime = (timestamp: string) => {
+    return new Date(timestamp).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  };
+
+  useEffect(() => adjustTextareaHeight(), [text]);
+
+  useEffect(() => {
+    fetchClipboard();
+    const interval = setInterval(fetchClipboard, REFRESH_INTERVAL);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <>
+      <Toaster position="bottom-right" duration={2500} richColors />
+      <main className="w-full h-full flex flex-col gap-10 p-10 overflow-hidden">
+        <h1 className="text-2xl">Portapapeles compartido GPC</h1>
+
+        <article className="flex flex-col gap-4 w-full border border-gray-500 rounded p-5">
+          <header>
+            <h2 className="text-xl">Envio de texto</h2>
+          </header>
+          <div className="flex gap-4 items-center">
+            <textarea
+              className="w-full border border-gray-500 rounded p-2 box-border"
+              ref={textareaRef}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Escribe algo..."
+              style={{
+                width: "100%",
+                minHeight: "24px",
+                overflow: "hidden",
+                resize: "none",
+              }}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
+            <button
+              className="w-11 h-11 flex justify-center items-center aspect-square bg-gray-500 hover:bg-gray-400 rounded cursor-pointer active:scale-90 transition-transform"
+              onClick={sendText}
+            >
+              <Icon icon="tabler:send" />
+            </button>
+          </div>
+        </article>
+
+        <section className="grow flex flex-col gap-5 border border-gray-500 rounded p-5 overflow-y-auto">
+          <span className="flex justify-between items-center">
+            <h2 className="text-xl">Portapapeles</h2>
+            <button
+              className="w-11 h-11 flex justify-center items-center aspect-square bg-gray-500 hover:bg-gray-400 rounded cursor-pointer active:scale-90 transition-transform"
+              onClick={fetchClipboard}
+            >
+              <Icon icon="tabler:reload" />
+            </button>
+          </span>
+          <ul className="flex flex-col gap-2">
+            {clipboard.map((item) => (
+              <li key={item.id} className="flex gap-2 items-center">
+                <div
+                  className="grow p-2 border hover:bg-gray-800 border-gray-300 rounded break-words flex flex-col gap-1 cursor-pointer"
+                  onClick={() => handleCopyToClipboard(item)}
+                >
+                  <span className="whitespace-pre-wrap">{item.text}</span>
+                  <span className="text-xs text-gray-500">
+                    {formatTime(item.createdAt)}
+                  </span>
+                </div>
+                <button
+                  className="w-11 h-11 flex justify-center items-center aspect-square bg-gray-500 hover:bg-gray-400 rounded cursor-pointer active:scale-90 transition-transform"
+                  onClick={() => handleCopyToClipboard(item)}
+                >
+                  <Icon icon="tabler:copy" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+    </>
   );
 }
