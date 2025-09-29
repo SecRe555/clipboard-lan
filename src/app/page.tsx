@@ -92,6 +92,9 @@ export default function Home() {
 
   const formatTime = (timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString([], {
+      day: "2-digit",
+      month: "2-digit",
+      year: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
@@ -140,7 +143,7 @@ export default function Home() {
           </div>
         </article>
 
-        <section className="grow flex flex-col gap-5 border border-gray-500 rounded p-5 overflow-y-auto">
+        <section id="clipboard" className="grow flex flex-col gap-5 border border-gray-500 rounded p-5 overflow-y-auto">
           <span className="flex justify-between items-center">
             <h2 className="text-xl">Portapapeles</h2>
             <button

@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
 
     const id = Date.now();
     const createdAt = new Date().toISOString(); // guardamos la fecha/hora actual
-    clipboard.push({ id, text, createdAt });
+    clipboard.unshift({ id, text, createdAt });
 
     // Borrar después de 5 minutos
     setTimeout(() => {
