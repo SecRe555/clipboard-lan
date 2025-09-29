@@ -29,16 +29,19 @@ export default function Home() {
       if (res.ok) {
         const data: ClipboardItem[] = await res.json();
         setClipboard(data);
-        toast.success("Portapales actualizado")
+        toast.success("Portapales actualizado");
       }
     } catch (err) {
       console.error(err);
-      toast.error("Error al actualizar")
+      toast.error("Error al actualizar");
     }
   };
 
   const sendText = async () => {
-    if (!text.replace(/\s/g, "").length) return;
+    if (!text.replace(/\s/g, "").length) {
+      toast.error("No puedes enviar un mensaje vacío");
+      return;
+    }
 
     try {
       const res = await fetch("/api/clipboard", {
@@ -53,12 +56,26 @@ export default function Home() {
       }
     } catch (err) {
       console.error(err);
+      toast.error("Error al enviar mensaje");
     }
   };
 
   const handleCopyToClipboard = async (item: ClipboardItem) => {
     try {
-      await navigator.clipboard.writeText(item.text);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(item.text);
+      } else {
+        // fallback: crea un textarea oculto
+        const textarea = document.createElement("textarea");
+        textarea.value = item.text;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
       toast.success("¡Copiado al portapapeles!");
     } catch (err) {
       console.error("Error al copiar:", err);
@@ -67,11 +84,9 @@ export default function Home() {
   };
 
   const handleKeyDown = async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && e.ctrlKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (text.trim()) {
-        await sendText();
-      }
+      await sendText();
     }
   };
 
@@ -95,7 +110,7 @@ export default function Home() {
     <>
       <Toaster position="bottom-right" duration={2500} richColors />
       <main className="w-full h-full flex flex-col gap-10 p-10 overflow-hidden">
-        <h1 className="text-2xl">Portapapeles compartido GPC</h1>
+        <h1 className="text-2xl">Portapapeles compartido</h1>
 
         <article className="flex flex-col gap-4 w-full border border-gray-500 rounded p-5">
           <header>
